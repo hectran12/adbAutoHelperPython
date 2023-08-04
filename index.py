@@ -8,7 +8,7 @@ import json
 import time
 import cv2
 import numpy as np
-
+import pyautogui
 class adbExec:
     def __init__(self) -> None:
         return
@@ -71,23 +71,31 @@ class ImageHandler:
 
     """
     @staticmethod
-    def findCoordinatesOnImageUsingPic(image: str, template: str, confidence: float = 0.9) -> dict:
-        try:
-            img_rgb = cv2.imread(image)
-            img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2GRAY)
-            template = cv2.imread(template, 0)
-            w, h = template.shape[::-1]
-            res = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
-            loc = np.where(res >= confidence)
-            coordinates = []
-            for pt in zip(*loc[::-1]):
-                coordinates.append({
-                    'x': pt[0],
-                    'y': pt[1]
-                })
-            return coordinates
-        except Exception as e:
-            return str(e)
+    def find_coordinates_on_image(image_path: str, template_path: str, confidence: float = 0.9) -> list:
+        # Đọc ảnh và template
+        img = cv2.imread(image_path)
+        template = cv2.imread(template_path)
+
+        # Chuyển ảnh và template sang ảnh grayscale
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+
+        # Tìm kết quả khớp giữa template và ảnh sử dụng phương pháp so khớp (matching method)
+        result = cv2.matchTemplate(img_gray, template_gray, cv2.TM_CCOEFF_NORMED)
+        locations = np.where(result >= confidence)
+
+        # Tính tổng tọa độ của các điểm khớp
+        total_x, total_y = np.sum(locations[1]), np.sum(locations[0])
+
+        # Tính tọa độ trung bình
+        avg_x = total_x / len(locations[1])
+        avg_y = total_y / len(locations[0])
+
+        # Tạo danh sách chứa tọa độ trung bình của các điểm khớp
+        coordinates = [{'x': avg_x, 'y': avg_y}]
+
+        return coordinates
+
 class MathHelper:
     def __init__ (self) -> None:
         return
@@ -281,6 +289,11 @@ class autoDeviceADBHelper:
         result, err = self.objAdb.execute([
             'adb', '-s', self.deviceId, 'pull', '/sdcard/' + imageName, pathOut
         ])
+
+        # remove in device
+        result, err = self.objAdb.execute([
+            'adb', '-s', self.deviceId, 'shell', 'rm', '/sdcard/' + imageName
+        ])
         if err:
             raise handleException('An error occurred: Unable to take screenshot')
         
@@ -365,7 +378,7 @@ class autoDeviceADBHelper:
                                     average_xy = self.MathHelper.calculateAverageCoordinates([line['coordinates'] for line in lines])
                                     result.append({'fullText': full_text, 'xy': average_xy})
 
-                    
+                    print(result)
                     if lowerMode:
                         value = value.lower()
                         statusIsClick = False
@@ -447,7 +460,8 @@ class autoDeviceADBHelper:
                     if not os.path.isfile(pathFind):
                         raise handleException('An error occurred: File not found')
                     
-                    result = self.imageHandler.findCoordinatesOnImageUsingPic(pathImage, pathFind)
+                    result = self.imageHandler.find_coordinates_on_image(pathImage, pathFind, confidence)
+                    
                     self.rmImageScreencap(pathImage)
                     if result:
                         for condi in result:
@@ -456,6 +470,7 @@ class autoDeviceADBHelper:
                             self.objAdb.execute([
                                 'adb', '-s', self.deviceId, 'shell', 'input', 'tap', x, y
                             ])
+                            
                         return True
                     return False
                 else:
@@ -465,8 +480,74 @@ class autoDeviceADBHelper:
                 raise handleException(f'An error occurred: {e}')
         else:
             raise handleException('Type not support')
-
-        
     
+
+
+    """
+        sendKeys: send keys to device
+        @param content: content send
+        @param delay: delay send
+        @return: bool
+    """
+    def sendKeys(self, content: str, delay: int=0) -> bool:
+        try:
+            char_to_keyevent_map = {
+                ' ': '62'
+            }
+
+            for char in content:
+                keyevent = char_to_keyevent_map.get(char.lower())
+                if keyevent:
+                    self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'keyevent', keyevent])
+                else:
+                    self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'text', char])
+                time.sleep(delay)
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+
+
+
+
+obj = autoDeviceADBHelper()
+
+allDevices = obj.getAllDevices()
+
+obj.setDeviceId(allDevices[0]["deviceHost"])
+
+if obj.findText('Galaxy Store', checkInLine=True, refind=5, timeout=5):
+    print('Đã tìm thấy')
+    obj.clickElement('text', 'Galaxy Store', checkInLine=False)
+else:
+    print('Không tìm thấy')
+
+#obj.clickElement('image', r'D:\Downloads\khjkhkhjk\backup\project_py\adbPython\HuJxtbPDNd.png', confidence=0.9)
+#print(obj.clickElement('text', 'genshin impact', lowerMode=True, checkInLine=True))
+# find = obj.findText(
+#     text='Galaxy Store',
+#     refind=5,
+#     pathTemp='./',
+#     checkInLine=False,
+#     ratio=90,
+#     timeout=5
+# )
+# print(find)
+# screenPath = obj.screencap('./')
+# if screenPath:
+#     print('Success: ' + screenPath)
+#     #obj.rmImageScreencap(screenPath)
+
+
+#test connect
+# if obj.connect():
+#     print('Connect: success')
+# else:
+#     print('Connect: failed')
+
+
+# if obj.findDevice():
+#     print('Device: find it')
+# else:
+#     print('Device: not found')
 
 
