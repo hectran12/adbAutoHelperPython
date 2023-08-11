@@ -420,7 +420,8 @@ class autoDeviceADBHelper:
     def sendKeys(self, content: str, delay: int=0) -> bool:
         try:
             char_to_keyevent_map = {
-                ' ': '62'
+                ' ': '62',
+                '\n': '66'
             }
 
             for char in content:
@@ -512,3 +513,80 @@ class autoDeviceADBHelper:
                     return data
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
+    """
+        tap: tap
+        @param x: x
+        @param y: y
+
+    """
+    def tap (self, x: int, y: int) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(x), str(y)])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        swipe: swipe
+        @param x1: x1
+        @param y1: y1
+    """
+    def rotateScreen(self) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'content', 'insert', '--uri', 'content://settings/system', '--bind', 'name:s:user_rotation', '--bind', 'value:i:1'])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        swipe: swipe
+        @param x1: x1
+        @param y1: y1
+        @param x2: x2
+        @param y2: y2
+        @param timeScroll: time scroll
+        (timeScroll - milliseconds)
+    """
+    def scroll(self, x1: int = 100, y1: int = 500, x2: int = 100, y2: int = 300, timeScroll: int = 500) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'swipe', str(x1), str(y1), str(x2), str(y2), str(timeScroll)])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        scrollUntilFindText: scroll until find text
+        @param x1: x1
+        @param y1: y1
+        @param x2: x2
+        @param y2: y2
+        @param timeScroll: time scroll
+        @param text: text
+
+    """
+    def scrollUntilFindText (self,
+                            x1: int = 100,
+                            y1: int = 500,
+                            x2: int = 100,
+                            y2: int = 300,
+                            timeScroll: int = 500,
+                            text=''
+                             ):
+        try:
+            while True:
+                if self.findText(text=text):
+                    return True
+                else:
+                    self.scroll(x1, y1, x2, y2, timeScroll)
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    """
+        setPin: set pin
+        @param pin: pin
+        @return: bool
+    """
+    def setPin (self, pin: str) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'locksettings', 'set-pin', pin])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+           
