@@ -86,7 +86,7 @@ class ImageHandler:
 
         # Tính tổng tọa độ của các điểm khớp
         total_x, total_y = np.sum(locations[1]), np.sum(locations[0])
-
+        
         # Tính tọa độ trung bình
         avg_x = total_x / len(locations[1])
         avg_y = total_y / len(locations[0])
@@ -354,133 +354,61 @@ class autoDeviceADBHelper:
         @param lowerMode: lower mode
         @return: bool
     """
-    def clickElement (self, type: str, value: str, checkInLine=False, lowerMode=False, confidence: float = 0.9, indexClick=0, clickAll=False) -> bool:
+    def clickElement (self, type: str, value: str, confidence: float = 0.9) -> bool:
         if type == 'text':
             try:
                 # screen cap
                 pathImage = self.screencap(self.pathOut)
                 if pathImage:
-                    data = self.textDetection.getTextInImage(pathImage)
-                    self.rmImageScreencap(pathImage)
-                    result = []
-                 
-                    for page in data['pages']:
-                        for block in page['blocks']:
-                            if block['blockType'] == "TEXT":
-                                for paragraph in block['paragraphs']:
-                                    lines = []
-                                    for word in paragraph['words']:
-                                        text = ''.join(symbol['text'] for symbol in word['symbols'])
-                                        coordinates = self.MathHelper.calculateAverageCoordinates(word['boundingBox']['vertices'])
-                                        lines.append({'text': text, 'coordinates': coordinates})
+                    # get all text
+                    textInImage = self.textDetection.getTextInImage(pathImage)
+                    target_vertices = []
 
-                                    full_text = ' '.join(line['text'] for line in lines)
-                                    average_xy = self.MathHelper.calculateAverageCoordinates([line['coordinates'] for line in lines])
-                                    result.append({'fullText': full_text, 'xy': average_xy})
-
-                    print(result)
-                    if lowerMode:
-                        value = value.lower()
-                        statusIsClick = False
-                        indexCurrentElement = 0
-                        for item in result:
-                            if checkInLine:
-                                
-                                if value in item['fullText'].lower():
-                                    if indexCurrentElement == indexClick:
-                                        self.objAdb.execute([
-                                            'adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(item['xy']['x']), str(item['xy']['y'])
-                                        ])
-                                        statusIsClick = True
-                                        if clickAll == False:
-                                            return True
-                                    if clickAll == False:
-                                        indexCurrentElement += 1
-                                if clickAll == False:
-                                    return False
-                                return statusIsClick
-                            else:
-                               
-                                if value == item['fullText'].lower():
-                                    if indexCurrentElement == indexClick:
-                                        self.objAdb.execute([
-                                            'adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(item['xy']['x']), str(item['xy']['y'])
-                                        ])
-                                    
-                                        statusIsClick = True
-                                        if clickAll == False:
-                                            return True
-                                    if clickAll == False:
-                                        indexCurrentElement += 1
-                                if clickAll == False:
-                                    return False
-                                return statusIsClick
+                    for page in textInImage["pages"]:
+                        for block in page["blocks"]:
+                            for paragraph in block["paragraphs"]:
+                                text = ""
+                                for word in paragraph["words"]:
+                                    for symbol in word["symbols"]:
+                                        text += symbol["text"]
+                                    text += " "
+                            
+                                if value in text:
+                                    target_vertices.append(paragraph["boundingBox"]["vertices"])
+                    
+                    if len(target_vertices) > 0:
+                        for vertices in target_vertices:
+                            coordinates = self.MathHelper.calculateAverageCoordinates(vertices)
+                            # click tap
+                            self.objAdb.execute([
+                                'adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(coordinates['x']), str(coordinates['y'])
+                            ])
+                        return True
+                    
                     else:
-                        statusIsClick = False
-                        indexCurrentElement = 0
-                        for item in result:
-                            if checkInLine:
-                                
-                                if value in item['fullText']:
-                                    statusIsClick = True
-                                    if indexCurrentElement == indexClick:
-                                        self.objAdb.execute([
-                                            'adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(item['xy']['x']), str(item['xy']['y'])
-                                        ])
-                                        if clickAll == False:
-                                            return True
-                                    if clickAll == False:
-                                        indexCurrentElement += 1
-                                if clickAll == False:
-                                    return False
-                                return statusIsClick
-                            else:
-                                if value == item['fullText']:
-                                    statusIsClick = True
-                                    if indexCurrentElement == indexClick:
-                                        self.objAdb.execute([
-                                            'adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(item['xy']['x']), str(item['xy']['y'])
-                                        ])
-                                        if clickAll == False:
-                                            return True
-                                    if clickAll == False:
-                                        indexCurrentElement += 1
-                                if clickAll == False:
-                                    return False
-                                return statusIsClick
-                                
-                return False
+                        return False
             except Exception as e:
                 raise handleException(f'An error occurred: {e}')
         elif type == 'image':
             try:
+                # screen cap
                 pathImage = self.screencap(self.pathOut)
                 if pathImage:
-                    pathFind = value 
-                    if not os.path.isfile(pathFind):
-                        raise handleException('An error occurred: File not found')
+                    # find coordinates
+                    coordinates = self.imageHandler.find_coordinates_on_image(pathImage, value, confidence)
                     
-                    result = self.imageHandler.find_coordinates_on_image(pathImage, pathFind, confidence)
-                    
-                    self.rmImageScreencap(pathImage)
-                    if result:
-                        for condi in result:
-                            x = str(condi['x'])
-                            y = str(condi['y'])
-                            self.objAdb.execute([
-                                'adb', '-s', self.deviceId, 'shell', 'input', 'tap', x, y
-                            ])
-                            
+                    if len(coordinates) > 0:
+                        # click tap
+                        self.objAdb.execute([
+                            'adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(coordinates[0]['x']), str(coordinates[0]['y'])
+                        ])
+                        self.rmImageScreencap(pathImage)
                         return True
-                    return False
-                else:
-                    raise handleException('An error occurred: Unable to take screenshot')
-                    
+                    else:
+                        self.rmImageScreencap(pathImage)
+                        return False
             except Exception as e:
                 raise handleException(f'An error occurred: {e}')
-        else:
-            raise handleException('Type not support')
-    
 
 
     """
@@ -505,49 +433,82 @@ class autoDeviceADBHelper:
             return True
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
+    """
+        installApk: install apk
+        @param path: path apk
+        @return: bool
+    """
+    def installApk (self, path: str) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'install', path])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
 
+    """
+        uninstallApk: uninstall apk
+        @param packageName: package name
+        @return: bool
+    """
+    def uninstallApp (self, packageName: str) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'uninstall', packageName])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    """
+        getPackageInstalled: get package installed
+        @return: list
 
+    """
 
-
-obj = autoDeviceADBHelper()
-
-allDevices = obj.getAllDevices()
-
-obj.setDeviceId(allDevices[0]["deviceHost"])
-
-if obj.findText('Galaxy Store', checkInLine=True, refind=5, timeout=5):
-    print('Đã tìm thấy')
-    obj.clickElement('text', 'Galaxy Store', checkInLine=False)
-else:
-    print('Không tìm thấy')
-
-#obj.clickElement('image', r'D:\Downloads\khjkhkhjk\backup\project_py\adbPython\HuJxtbPDNd.png', confidence=0.9)
-#print(obj.clickElement('text', 'genshin impact', lowerMode=True, checkInLine=True))
-# find = obj.findText(
-#     text='Galaxy Store',
-#     refind=5,
-#     pathTemp='./',
-#     checkInLine=False,
-#     ratio=90,
-#     timeout=5
-# )
-# print(find)
-# screenPath = obj.screencap('./')
-# if screenPath:
-#     print('Success: ' + screenPath)
-#     #obj.rmImageScreencap(screenPath)
-
-
-#test connect
-# if obj.connect():
-#     print('Connect: success')
-# else:
-#     print('Connect: failed')
-
-
-# if obj.findDevice():
-#     print('Device: find it')
-# else:
-#     print('Device: not found')
-
-
+    def gePackageInstalled (self) -> list:
+        try:
+            result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'pm', 'list', 'packages'])
+            if err:
+                raise handleException(f'An error occurred: {err}')
+            else:
+                packages = []
+                for pack in result.split('\n'):
+                    if pack != '':
+                        # remove index
+                        pack = pack.replace('package:', '')
+                        packages.append(pack)
+                return packages
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        openApp: open app
+        @param packageName: package name
+        @return: bool
+    """
+    def openApp (self, packageName) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'monkey', '-p', packageName, '-c', 'android.intent.category.LAUNCHER', '1'])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        dumpXML: dump xml
+        @return: str
+    """
+    def dumpXML (self) -> str:
+        try:
+            name_file = self.randomString() + '.xml'
+            result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'uiautomator', 'dump'])
+            if err:
+                raise handleException(f'An error occurred: {err}')
+            else:
+                result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'pull', '/sdcard/window_dump.xml', self.pathOut + name_file])
+                if err:
+                    raise handleException(f'An error occurred: {err}')
+                else:
+                    # read data and remove
+                    with open(self.pathOut + name_file, 'r') as f:
+                        data = f.read()
+                    os.remove(self.pathOut + name_file)
+                    return data
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
