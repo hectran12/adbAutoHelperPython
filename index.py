@@ -464,7 +464,7 @@ class autoDeviceADBHelper:
 
     """
 
-    def gePackageInstalled (self) -> list:
+    def getPackageInstalled (self) -> list:
         try:
             result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'pm', 'list', 'packages'])
             if err:
