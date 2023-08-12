@@ -8,7 +8,6 @@ import json
 import time
 import cv2
 import numpy as np
-import pyautogui
 class adbExec:
     def __init__(self) -> None:
         return
@@ -72,28 +71,16 @@ class ImageHandler:
     """
     @staticmethod
     def find_coordinates_on_image(image_path: str, template_path: str, confidence: float = 0.9) -> list:
-        # Đọc ảnh và template
         img = cv2.imread(image_path)
         template = cv2.imread(template_path)
-
-        # Chuyển ảnh và template sang ảnh grayscale
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-
-        # Tìm kết quả khớp giữa template và ảnh sử dụng phương pháp so khớp (matching method)
         result = cv2.matchTemplate(img_gray, template_gray, cv2.TM_CCOEFF_NORMED)
         locations = np.where(result >= confidence)
-
-        # Tính tổng tọa độ của các điểm khớp
         total_x, total_y = np.sum(locations[1]), np.sum(locations[0])
-        
-        # Tính tọa độ trung bình
         avg_x = total_x / len(locations[1])
         avg_y = total_y / len(locations[0])
-
-        # Tạo danh sách chứa tọa độ trung bình của các điểm khớp
         coordinates = [{'x': avg_x, 'y': avg_y}]
-
         return coordinates
 
 class MathHelper:
@@ -571,7 +558,7 @@ class autoDeviceADBHelper:
                              ):
         try:
             while True:
-                if self.findText(text=text):
+                if self.findText(text=text, refind=1, timeout=1):
                     return True
                 else:
                     self.scroll(x1, y1, x2, y2, timeScroll)
@@ -589,4 +576,116 @@ class autoDeviceADBHelper:
             return True
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
-           
+    """
+        closeApp: close app
+        @param packageName: package name
+        @return: bool
+    """
+    def closeApp (self, packageName: str) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'am', 'force-stop', packageName])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        getAllAppCurrentActive: get all app current active
+        @return: list
+    """
+    def getAllAppCurrentActive (self) -> list:
+        try:
+            result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'dumpsys', 'activity', 'activities'])
+            if err:
+                raise handleException(f'An error occurred: {err}')
+            else:
+                packages = []
+                for pack in result.split('\n'):
+                    if pack != '':
+                        # remove index
+                        pack = pack.replace('package:', '')
+                        packages.append(pack)
+                return packages
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        closeAllTabsCurrentActive: close all tabs current active
+        @return: bool
+    """ 
+    def closeAllTabsCurrentActive (self) -> bool:
+        for app in self.getAllAppCurrentActive():
+            self.closeApp(app)
+        return True
+    """
+        unlockPhone: unlock phone
+        @param pin: pin
+        @return: bool
+    """
+    def unlockPhone (self, pin: str) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'text', pin])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        btnHomeClick: click button home
+        @return: bool
+    """
+    def btnHomeClick (self) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'keyevent', '3'])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        btnBackClick: click button back
+        @return: bool
+    """
+    def btnBackClick (self) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'keyevent', '4'])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        btnRecentClick: click button recent
+        @return: bool
+    """   
+    def btnRecentClick (self) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'keyevent', '187'])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        setTimeOpenScreenContinuous: set time open screen continuous
+        @return: bool
+    """
+    def setTimeOpenScreenContinuous (self, time: int = 86400000) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'settings', 'put', 'system', 'screen_off_timeout', str(time)])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        setModeSleep: set mode sleep
+        @param mode: mode
+        @return: bool
+    """ 
+    def setModeSleep (self, mode: int = 3) -> bool:
+       
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'settings', 'put', 'global', 'stay_on_while_plugged_in', str(mode)])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        setScreenBrightness: set screen brightness
+        @param brightness: brightness
+        @return: bool
+    """
+    def setScreenBrightness (self, brightness: int = 255) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'settings', 'put', 'system', 'screen_brightness', str(brightness)])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    
