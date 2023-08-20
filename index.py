@@ -33,6 +33,15 @@ class adbExec:
         
         except subprocess.CalledProcessError as e:
             return None, e.stderr.strip()
+    
+    @staticmethod
+    def execute_powershell (script: str, timeout:int=10) -> tuple:
+        try:
+            result = subprocess.run(["powershell", "-Command", script], capture_output=True, text=True)
+
+            return result.stdout.strip(), result.stderr.strip()
+        except subprocess.CalledProcessError as e:
+            return None, e.stderr.strip()
         
 
 class textDetection:
@@ -125,6 +134,9 @@ class autoDeviceADBHelper:
         self.textDetection = textDetection()
         self.MathHelper = MathHelper()
         self.imageHandler = ImageHandler()
+        self.systemPackageAlawaysActive = ["com.android.systemui", "com.android.settings", "com.android.systemui.recents"
+                                      ,"com.google.android.packageinstaller", "com.sec.android.app.launcher.activities.LauncherActivity",
+                                      'com.android.settings.FallbackHome', 'com.samsung.rtlassistant']
         self.pathOut = './'
     """
         reConnectServer: reconnect server
@@ -659,7 +671,7 @@ class autoDeviceADBHelper:
         setTimeOpenScreenContinuous: set time open screen continuous
         @return: bool
     """
-    def setTimeOpenScreenContinuous (self, time: int = 86400000) -> bool:
+    def setTimeOpenScreenContinuous (self, time: int = 130000) -> bool:
         try:
             self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'settings', 'put', 'system', 'screen_off_timeout', str(time)])
             return True
@@ -688,4 +700,118 @@ class autoDeviceADBHelper:
             return True
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
+
+
+    """
+        getNetworkSpeed: get network speed
+        @return: int
+    """
+    def getNetworkSpeed (self) -> int:
+        try:
+            result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'dumpsys', 'wifi'])
+            if 'Link speed:' in result:
+                result = result.split('Link speed:')[1].split('Mbps')[0].strip()
+                return int(result)
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
     
+
+    """
+        getMemoryInfo: get memory info
+        @return: int
+    """
+    def getMemoryInfo (self) -> int:
+        try:
+            result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'cat', '/proc/meminfo'])
+            if err:
+                raise handleException(f'An error occurred: {err}')
+            self.ramInfo = {}
+            for x in result.split('\n'):
+                name = x.split(':')[0].strip()
+                value = x.split(':')[1].strip().split(' ')[0]
+                self.ramInfo[name] = value
+
+            return self.ramInfo
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        getMultiTasking: get multi tasking
+        @return: list
+    """
+    def getMultiTasking (self) -> list:
+        powershellScript = """
+            $recents = (adb shell dumpsys activity recents)
+            $recents | Select-String "Recent #" | ForEach-Object { "[{0}]" -f $_.ToString() }
+            $recents | Select-String "packageName=" | ForEach-Object { $_.ToString() -replace "packageName=", "" }
+        """
+        try:
+            result, err = self.objAdb.execute_powershell(powershellScript)
+            
+            if err:
+                raise handleException(f'An error occurred: {err}')
+            else:
+                recentCount = len(result.split('Recent #'))-1
+                data = {}
+                data['recentCount'] = recentCount
+                data['infoTask'] = []
+                for task in result.split('\n'):
+                    obj = {}
+                    try:
+                        obj['type'] = task.split('type=')[1].split(' ')[0]
+                    except:
+                        pass
+
+                    try:
+                        obj['A'] = task.split('A=')[1].split(':')[0]
+                    except:
+                        pass
+                    
+                    try:
+                        obj['packageName'] = 'com.' + task.split(':com.')[1].split(' ')[0]
+                    except:
+                        pass
+                    
+                    try:
+                        obj['mode'] = task.split('mode=')[1].split(' ')[0]
+                    except:
+                        pass
+
+                    try:
+                        obj['U'] = task.split('U=')[1].split(' ')[0]
+                    except:
+                        pass
+
+                    try:
+                        obj['translucent'] = task.split('translucent=')[1].split(' ')[0]
+                    except:
+                        pass
+
+                    try:
+                        obj['sz'] = task.split('sz=')[1].split(' ')[0]
+                    except:
+                        pass
+
+
+                    try:
+                        obj['visible'] = task.split('visible=')[1].split(' ')[0]
+                    except:
+                        pass
+                    data['infoTask'].append(obj)
+
+
+                return data
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    """
+        checkOnlyPackageNameActive: check only package name active
+        @param packageName: package name
+    """
+    def checkOnlyPackageNameActive (self, packageName: str) -> bool:
+        multiTasks = self.getMultiTasking()
+        taskInfo = multiTasks['infoTask']
+        acceptPackageNames = self.systemPackageAlawaysActive.copy()
+        acceptPackageNames.append(packageName)
+        for task in taskInfo:
+            if task['packageName'] not in acceptPackageNames:
+                return False
