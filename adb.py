@@ -19,7 +19,7 @@ class adbExec:
 
     """
     @staticmethod
-    def execute (command: str, timeout: int = 10) -> tuple:
+    def execute (command: str, timeout: int = 100) -> tuple:
         try:
             # exec
             result = subprocess.run(command, 
@@ -144,8 +144,15 @@ class autoDeviceADBHelper:
     def reConnectServer (self) -> None:
         self.objAdb.execute(['adb', 'kill-server'])
         self.objAdb.execute(['adb', 'start-server'])
-
-    
+    """
+        checkInstallADB: check install adb
+    """
+    def checkInstallADB (self) -> bool:
+        result, err = self.objAdb.execute(['adb', 'version'])
+        if err:
+            return False
+        else:
+            return True
     """
         getAllDevices: get all devices
     """
@@ -276,8 +283,9 @@ class autoDeviceADBHelper:
         @param pathOut: path to save image
         @return: bool
     """
+
     def screencap (self, pathOut: str) -> bool:
-        imageName = self.randomString() + '.png'
+        imageName = self.randomString() + '-temphexnguyenadb.png'
         pathOut = pathOut + imageName
         result, err = self.objAdb.execute([
             'adb', '-s', self.deviceId, 'shell', 'screencap', '-p', '/sdcard/' + imageName
@@ -361,6 +369,7 @@ class autoDeviceADBHelper:
                 if pathImage:
                     # get all text
                     textInImage = self.textDetection.getTextInImage(pathImage)
+                    self.deleteAllFileTemp()
                     target_vertices = []
 
                     for page in textInImage["pages"]:
@@ -401,10 +410,10 @@ class autoDeviceADBHelper:
                         self.objAdb.execute([
                             'adb', '-s', self.deviceId, 'shell', 'input', 'tap', str(coordinates[0]['x']), str(coordinates[0]['y'])
                         ])
-                        self.rmImageScreencap(pathImage)
+                        self.deleteAllFileTemp()
                         return True
                     else:
-                        self.rmImageScreencap(pathImage)
+                        self.deleteAllFileTemp
                         return False
             except Exception as e:
                 raise handleException(f'An error occurred: {e}')
@@ -438,9 +447,9 @@ class autoDeviceADBHelper:
         @param path: path apk
         @return: bool
     """
-    def installApk (self, path: str) -> bool:
+    def installApk (self, path: str, timeout=2000) -> bool:
         try:
-            self.objAdb.execute(['adb', '-s', self.deviceId, 'install', path])
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'install', path], timeout=timeout)
             return True
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
@@ -486,7 +495,7 @@ class autoDeviceADBHelper:
     """
     def openApp (self, packageName) -> bool:
         try:
-            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'monkey', '-p', packageName, '-c', 'android.intent.category.LAUNCHER', '1'])
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'monkey', '-p', packageName, '-c', 'android.intent.category.LAUNCHER', '2'])
             return True
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
@@ -815,3 +824,161 @@ class autoDeviceADBHelper:
         for task in taskInfo:
             if task['packageName'] not in acceptPackageNames:
                 return False
+    """
+        onPhone: on phone
+        @return: bool
+    """
+    def onPhone (self) -> bool:
+        try:
+            result, err = self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'dumpsys', 'power'])
+            if err:
+                raise handleException(f'An error occurred: {err}')
+            else:
+                if 'Display Power: state=OFF' in result:
+                    return False
+                else:
+                    return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        sendActivePhone: send active phone
+        @return: bool
+    """
+    def sendActivePhone (self) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'keyevent', '26'])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    """
+        swipeToOpen: swipe to open
+        @return: bool
+    """
+    def swipeToOpen (self) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'swipe', '500', '1000', '500', '100'])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        getTextInScreen: get text in screen
+        @return: bool
+    """
+    def getTextInScreen (self) -> bool:
+        try:
+            # screen cap
+            pathImage = self.screencap(self.pathOut)
+            if pathImage:
+                # get all text
+                textInImage = self.textDetection.getTextInImage(pathImage)
+                return textInImage['text']
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        checkScreenIsOn: check screen is on
+        @return: bool
+    """
+    def checkScreenIsOn (self) -> bool:
+        try:
+            self.getTextInScreen()
+            self.deleteAllFileTemp()
+            return True
+        except Exception as e:
+            return False
+    """
+        deleteAllFileTemp: delete all file temp
+    """
+    def deleteAllFileTemp (self) -> None:
+        endWith = '-temphexnguyenadb.png'
+        for file in os.listdir(self.pathOut):
+            if file.endswith(endWith):
+                os.remove(self.pathOut + file)
+
+
+    """
+        findCoordinatesByText: find coordinates by text 
+    """
+    def findCoordinatesByText (self, textFind, checkInLine=True) -> dict:
+        try:
+            # screen cap
+            pathImage = self.screencap(self.pathOut)
+            if pathImage:
+                # get all text
+                textInImage = self.textDetection.getTextInImage(pathImage)
+                print(textInImage)
+                self.deleteAllFileTemp()
+                target_vertices = []
+
+                for page in textInImage["pages"]:
+                    for block in page["blocks"]:
+                        for paragraph in block["paragraphs"]:
+                            text = ""
+                            for word in paragraph["words"]:
+                                for symbol in word["symbols"]:
+                                    text += symbol["text"]
+                                text += " "
+                            if checkInLine:
+                                if textFind in text or textFind == text:
+                                    target_vertices.append(paragraph["boundingBox"]["vertices"])
+                            else:
+                                print(textFind, text)
+                                if textFind.strip() == text.strip():
+                                    target_vertices.append(paragraph["boundingBox"]["vertices"])
+                if len(target_vertices) > 0:
+                    for vertices in target_vertices:
+                        coordinates = self.MathHelper.calculateAverageCoordinates(vertices)
+                        return coordinates
+                    
+                else:
+                    return None
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    
+    """
+        sendKeyevent: send keyevent
+        @param keyCode: key code
+        @return: bool
+    """
+    def sendKeyevent (self, keyCode) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'input', 'keyevent', str(keyCode)])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+
+    """
+        closeAllMultiTasking: close all multi tasking
+        @return: bool
+    """
+    def closeAllMultiTasking (self) -> bool:
+        self.sendKeyevent("KEYCODE_APP_SWITCH")
+        if self.findText('Close all', timeout=3, refind=3):
+            self.clickElement('text', 'Close all')
+            return True
+        else:
+            return False
+
+    """
+        push: push file to android  
+        @param pathImageComputer: path image computer
+        @param pathToAndroid: path to android
+        @return: bool
+    """
+    def push(self, pathImageComputer: str, pathToAndroid: str) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'push', pathImageComputer, pathToAndroid])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        openLink: open link
+        @param link: link
+        @return: bool
+    """
+    def openLink (self, link: str) -> bool:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', link])
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
