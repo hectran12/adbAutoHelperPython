@@ -1,6 +1,7 @@
 # adbAutoHelperPython
 Hỗ trợ ADB Python
 # Repo này mình lười viết demo , docs các bạn chịu khó mò nha. Mình viết cái này lúc đang cần phục vụ cho công việc, sau không cần nữa nên mình up vui vui thui.
+# getTextInImage: đang patch, sau này mình update cho các bạn chạy local or sài api bên thứ 3 cho tiết kiệm tài nguyên (nếu mình rảnh mình sẽ làm=)) )
 <pre>
 from adb import autoDeviceADBHelper
 
