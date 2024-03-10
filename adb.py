@@ -134,10 +134,19 @@ class autoDeviceADBHelper:
         self.textDetection = textDetection()
         self.MathHelper = MathHelper()
         self.imageHandler = ImageHandler()
+        self.skipConnectADB = False
         self.systemPackageAlawaysActive = ["com.android.systemui", "com.android.settings", "com.android.systemui.recents"
                                       ,"com.google.android.packageinstaller", "com.sec.android.app.launcher.activities.LauncherActivity",
                                       'com.android.settings.FallbackHome', 'com.samsung.rtlassistant']
         self.pathOut = './'
+
+    """
+        skipConnect: skip connect
+        @param status: status
+    """
+    def skipConnect (self, status: bool) -> None:
+        self.skipConnectADB = status
+
     """
         reConnectServer: reconnect server
     """
@@ -205,6 +214,9 @@ class autoDeviceADBHelper:
         connect: connect to device
     """
     def connect (self) -> bool:
+        if self.skipConnectADB:
+            return True
+        
         try:
             port = self.deviceId.split(':')[1]
             if port.isdigit() == False:
