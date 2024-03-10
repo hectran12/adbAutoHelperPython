@@ -2,7 +2,7 @@
 Hỗ trợ ADB Python
 # Repo này mình lười viết demo , docs các bạn chịu khó mò nha. Mình viết cái này lúc đang cần phục vụ cho công việc, sau không cần nữa nên mình up vui vui thui.
 <pre>
-  from adb import autoDeviceADBHelper
+from adb import autoDeviceADBHelper
 
 
 obj = autoDeviceADBHelper()
