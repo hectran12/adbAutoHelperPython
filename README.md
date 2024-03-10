@@ -8,7 +8,7 @@ from adb import autoDeviceADBHelper
 obj = autoDeviceADBHelper()
 device = obj.getAllDevices()[0]['deviceHost']
 obj.setDeviceId(device)
-obj.skipConnect(True)
+obj.skipConnect(True) # chỉ nên để True khi device không có port ngoài ra có port thì nên để false nha
 
 if obj.connect():
     print('[', device, '] Connected')
