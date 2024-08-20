@@ -126,6 +126,79 @@ class handleException (Exception):
         super().__init__(message)
 
 
+class XAPKHelper:
+    """
+        WARNING: IS CLEAR OUT FOLDER PROCESS AFTER EXTRACT XAPK
+    """
+    def __init__ (self, pathXAPK: str = '', outFolderProcess: str = './', deviceId: str = '') -> None:
+        self.pathXAPK = pathXAPK  
+        self.outFolderProcess = outFolderProcess
+        self.deviceId = deviceId
+        self.objAdb = autoDeviceADBHelper()
+        self.objAdb.setDeviceId(deviceId)
+        self.objAdb.skipConnect(True)
+
+    def clearFile (self) -> None:
+        for file in os.listdir(self.outFolderProcess):
+            os.remove(self.outFolderProcess + file)
+            
+    def extractXAPK (self) -> bool:
+        try:
+            with zipfile.ZipFile(self.pathXAPK, 'r') as zip_ref:
+                zip_ref.extractall(self.outFolderProcess)
+
+            return True
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    def copyObb (self, obbFolder: str, packageName: str) -> None:
+        try:
+            obbDestPath = f'/sdcard/Android/obb/{packageName}/'
+            self.objAdb.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'mkdir', '-p', obbDestPath])
+            for file in os.listdir(obbFolder):
+                filePath = os.path.join(obbFolder, file)
+                self.objAdb.objAdb.execute(['adb', '-s', self.deviceId, 'push', filePath, obbDestPath])
+            
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    
+    def actionInstall (self) -> bool:
+        try:
+            self.clearFile()
+            self.extractXAPK()
+
+
+            listAPKFiles = []
+            listObbFolders = []
+
+            for root, dirs, files in os.walk(self.outFolderProcess):
+                for file in files:
+                    if file.endswith('.apk'):
+                        apkFile = os.path.join(root, file)
+                        listAPKFiles.append(apkFile)
+                    if file.endswith('.obb'):
+                        obbFolder = os.path.join(root, file)
+                        packageName = file.split('.')[0]
+                        listObbFolders.append({
+                            'obbFolder': obbFolder,
+                            'packageName': packageName
+                        })
+
+            if len(listAPKFiles) == 0:
+                raise handleException('An error occurred: No APK file found')
+            
+            for apkFile in listAPKFiles:
+                self.objAdb.installApk(apkFile)
+
+            for obb in listObbFolders:
+                self.copyObb(obb['obbFolder'], obb['packageName'])
+
+
+        
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+
+
 class autoDeviceADBHelper:
     def __init__(self, deviceId: str = '') -> None:
         self.deviceId = deviceId
