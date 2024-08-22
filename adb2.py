@@ -68,7 +68,7 @@ class textDetection:
 
     @staticmethod
     def basicDetection(file_path: str) -> dict:
-        reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT)  # Khởi tạo EasyOCR với ngôn ngữ tiếng Anh
+        reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT) 
         results = reader.readtext(file_path)
         return results
     @staticmethod
