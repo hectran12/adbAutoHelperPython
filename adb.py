@@ -1,3 +1,4 @@
+# phiên bản đã cũ
 import subprocess
 import random
 import string
