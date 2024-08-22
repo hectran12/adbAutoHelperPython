@@ -1,25 +1,19 @@
-# adbAutoHelperPython
-Hỗ trợ ADB Python
-# Repo này mình lười viết demo , docs các bạn chịu khó mò nha. Mình viết cái này lúc đang cần phục vụ cho công việc, sau không cần nữa nên mình up vui vui thui.
-# getTextInImage: đang patch, sau này mình update cho các bạn chạy local or sài api bên thứ 3 cho tiết kiệm tài nguyên (nếu mình rảnh mình sẽ làm=)) )
-<pre>
-from adb import autoDeviceADBHelper
+## GIỚI THIỆU
+- Một thư viện hỗ trợ auto adb đơn giản, được tôi phát triển từ lớp 9 nhưng chưa hoàn hảo. Nên vào năm nay tôi đã fix và viết thêm document cho nó :D
 
 
-obj = autoDeviceADBHelper()
-device = obj.getAllDevices()[0]['deviceHost']
-obj.setDeviceId(device)
-obj.skipConnect(True) # chỉ nên để True khi device không có port ngoài ra có port thì nên để false nha
+## CÀI ĐẶT
+- Cứ ném file này vào project của bạn là xong:D
 
-if obj.connect():
-    print('[', device, '] Connected')
+## THƯ VIỆN CẦN THIẾT
+```pip install requests opencv-python numpy easyocr```
 
-    infoDevice = obj.getInfoDevice()
-    for key in infoDevice:
-        print(key, ':', infoDevice[key])
+## HƯỚNG DẪN SỬ DỤNG
+1. Khởi tạo đối tượng
+```python
+import adb2
 
-    speedInternet = obj.getNetworkSpeed()
-    print('Speed Internet: ' + str(speedInternet) + 'Mbps')
-    apps = obj.getPackageInstalled()
-    print(apps)
-</pre>
+adb2.DEFAULT_LANGUAGE = 'vi' # set ngôn ngữ mặc định là 
+adb2.GPU_SUPPORT = True # set hỗ trợ GPU (nhầm mục đích text recognition nhanh hơn)
+objAdb = adb2.autoDeviceADBHelper()
+```
