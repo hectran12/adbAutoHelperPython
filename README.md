@@ -67,3 +67,5 @@ else:
 ```
 
 - Ngoài ra còn nhiều tính năng nữa, hãy tự mở source và đọc, tôi đã chú thích vào đây. Có thể bạn không hiểu, xin lỗi vì trình độ tiếng anh hạn hẹp;)
+- Một số tính năng bạn có thể tìm hiểu thêm:
+```cài đặt APK, XAPK, swipe, scroll,..```
