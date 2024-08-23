@@ -10,10 +10,20 @@ import cv2
 import numpy as np
 import zipfile
 import easyocr
+import pytesseract
+from pytesseract import Output
+import cv2
+
+
 
 
 DEFAULT_LANGUAGE = 'vi'
 GPU_SUPPORT = True
+SERVICE_OCR = 'easyocr'
+PATH_TESSERACT = ''
+
+if PATH_TESSERACT != '':
+    pytesseract.pytesseract.tesseract_cmd = PATH_TESSERACT
 
 
 class adbExec:
@@ -68,29 +78,60 @@ class textDetection:
 
     @staticmethod
     def basicDetection(file_path: str) -> dict:
-        reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT) 
-        results = reader.readtext(file_path)
-        return results
+
+        if SERVICE_OCR == 'easyocr':
+            reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT)  # Khởi tạo EasyOCR với ngôn ngữ tiếng Anh
+            results = reader.readtext(file_path)
+            return results
+        elif SERVICE_OCR == 'pytesseract':
+            image = cv2.imread(file_path)
+            results = pytesseract.image_to_data(image, output_type=Output.DICT)
+            return results
+        
+
     @staticmethod
     def getTextInImage(file_path: str) -> dict:
         try:
-            reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT)
-            results = reader.readtext(file_path)
-            result = {
-                "text": '',
-                "vertices": []
-            }
-            for (bbox, text, prob) in results:
-                if prob > 0.6:
-                    result["text"] += text + "\n"
-                    result["vertices"].append([
-                        {"x": int(bbox[0][0]), "y": int(bbox[0][1])},
-                        {"x": int(bbox[1][0]), "y": int(bbox[1][1])},
-                        {"x": int(bbox[2][0]), "y": int(bbox[2][1])},
-                        {"x": int(bbox[3][0]), "y": int(bbox[3][1])}
-                    ])
+            if SERVICE_OCR == 'easyocr':
+                reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT)
+                results = reader.readtext(file_path)
+                result = {
+                    "text": '',
+                    "vertices": []
+                }
+                for (bbox, text, prob) in results:
+                    if prob > 0.6:
+                        result["text"] += text + "\n"
+                        result["vertices"].append([
+                            {"x": int(bbox[0][0]), "y": int(bbox[0][1])},
+                            {"x": int(bbox[1][0]), "y": int(bbox[1][1])},
+                            {"x": int(bbox[2][0]), "y": int(bbox[2][1])},
+                            {"x": int(bbox[3][0]), "y": int(bbox[3][1])}
+                        ])
 
-            return result
+                return result
+            elif SERVICE_OCR == 'pytesseract':
+                image = cv2.imread(file_path)
+                results = pytesseract.image_to_data(image, output_type=Output.DICT)
+
+                result = {
+                    "text": '',
+                    "vertices": []
+                }
+
+                for i in range(len(results["text"])):
+                    if int(results["conf"][i]) > 60: 
+                        text = results["text"][i]
+                        x, y, w, h = results["left"][i], results["top"][i], results["width"][i], results["height"][i]
+                        result["text"] += text + "\n"
+                        result["vertices"].append([
+                            {"x": x, "y": y},
+                            {"x": x + w, "y": y},
+                            {"x": x + w, "y": y + h},
+                            {"x": x, "y": y + h}
+                        ])
+
+                return result
         except Exception as e:
             return {"error": str(e)}
 
@@ -470,17 +511,36 @@ class autoDeviceADBHelper:
             try:
                 pathImage = self.screencap(self.pathOut)
                 if pathImage:
+
+
+                    
                     textInImage = self.textDetection.basicDetection(pathImage)
                     self.deleteAllFileTemp()
-                    for (bbox, detected_text, prob) in textInImage:
-                        if value.lower() in detected_text.lower():
-                            x_coords = [point[0] for point in bbox]
-                            y_coords = [point[1] for point in bbox]
-                            x_center = int(sum(x_coords) / len(x_coords))
-                            y_center = int(sum(y_coords) / len(y_coords))
-                            self.tap(x_center, y_center)
-                            return True
-                    return False
+
+                    if SERVICE_OCR == 'easyocr':
+                        for (bbox, detected_text, prob) in textInImage:
+                            if value.lower() in detected_text.lower():
+                                x_coords = [point[0] for point in bbox]
+                                y_coords = [point[1] for point in bbox]
+                                x_center = int(sum(x_coords) / len(x_coords))
+                                y_center = int(sum(y_coords) / len(y_coords))
+                                self.tap(x_center, y_center)
+                                return True
+                        return False
+                    
+                    if SERVICE_OCR == 'pytesseract':
+                        for i in range(len(textInImage["text"])):
+                            # Kiểm tra độ chính xác của kết quả
+                            if int(textInImage["conf"][i]) > 60:
+                                text = textInImage["text"][i]
+                                x, y, w, h = textInImage["left"][i], textInImage["top"][i], textInImage["width"][i], textInImage["height"][i]
+                                # Kiểm tra xem giá trị cần tìm có nằm trong văn bản đã nhận diện không
+                                if value.lower() in text.lower():
+                                    x_center = x + w // 2
+                                    y_center = y + h // 2
+                                    self.tap(x_center, y_center)
+                                    return True
+                        return False
             except Exception as e:
                 raise handleException(f'An error occurred: {e}')
         elif type == 'image':
@@ -1155,3 +1215,51 @@ class autoDeviceADBHelper:
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
     
+    """
+        scrollRange: scroll range
+        @param x1: x1
+        @param y1: y1
+        @param x2: x2
+        @param y2: y2
+        @param timeScroll: time scroll
+        @param rangeScroll: range scroll
+        @return
+    """
+    def scrollRange (self, x1: int = 100, y1: int = 500, x2: int = 100, y2: int = 300, timeScroll: int = 500, rangeScroll: int = 5) -> bool:
+        try:
+            for i in range(rangeScroll):
+                self.scroll(x1, y1, x2, y2, timeScroll)
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    
+    """
+        findImage: find image
+        @param pathImage: path image
+        @param pathTemplate: path template
+        @param confidence: confidence
+        @return: bool
+    """
+    def findImage (self, pathTemplate: str, confidence: float = 0.9, pathOut: str = './', refind: int = 10, timeout: int = 5) -> bool:
+        try:
+            for i in range(refind):
+                pathImage = self.screencap(pathOut)
+                if pathImage:
+                    result = self.imageHandler.find_coordinates_on_image(pathImage, pathTemplate, confidence)
+                    self.deleteAllFileTemp()
+                    if len(result) > 0:
+                        return True
+                time.sleep(timeout)
+            return False
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    """
+        clearDataApp: clear data app
+        @param packageName: package name
+        @return: bool
+    """
+    def clearDataApp (self, packageName: str) -> None:
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'pm', 'clear', packageName])
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
