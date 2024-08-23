@@ -15,6 +15,7 @@ import adb2
 
 adb2.DEFAULT_LANGUAGE = 'vi' # set ngôn ngữ mặc định là 
 adb2.GPU_SUPPORT = True # set hỗ trợ GPU (nhầm mục đích text recognition nhanh hơn)
+adb.SERVICE_OCR = 'easyocr' # pytesseract or easyocr (recommend: easyocr)
 objAdb = adb2.autoDeviceADBHelper() # khởi tạo object
 ```
 
