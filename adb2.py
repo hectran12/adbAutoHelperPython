@@ -80,7 +80,7 @@ class textDetection:
     def basicDetection(file_path: str) -> dict:
 
         if SERVICE_OCR == 'easyocr':
-            reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT)  # Khởi tạo EasyOCR với ngôn ngữ tiếng Anh
+            reader = easyocr.Reader([DEFAULT_LANGUAGE], gpu=GPU_SUPPORT)  
             results = reader.readtext(file_path)
             return results
         elif SERVICE_OCR == 'pytesseract':
