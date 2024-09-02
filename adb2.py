@@ -21,6 +21,7 @@ DEFAULT_LANGUAGE = 'vi'
 GPU_SUPPORT = True
 SERVICE_OCR = 'easyocr'
 PATH_TESSERACT = ''
+METHOD_SCREENSHOT_ADB = 'exec_out' # exec_out or storage_emulated
 
 if PATH_TESSERACT != '':
     pytesseract.pytesseract.tesseract_cmd = PATH_TESSERACT
@@ -439,15 +440,37 @@ class autoDeviceADBHelper:
     """
 
     def screencap(self, pathOut: str) -> bool:
-        imageName = self.randomString() + '-temphexnguyenadb.png'
-        pathOut = pathOut + imageName
-        try:
-            with open(pathOut, 'wb') as f:
-              #  subprocess.run(['adb', '-s', self'exec-out', 'screencap', '-p'], stdout=f, check=True, timeout=10) 
-                subprocess.run(['adb', '-s', self.deviceId, 'exec-out', 'screencap', '-p'], stdout=f, check=True, timeout=10)
-        except subprocess.CalledProcessError as e:
-            raise handleException('An error occurred: Unable to take screenshot')
-        return pathOut
+        if METHOD_SCREENSHOT_ADB == 'exec_out':
+            imageName = self.randomString() + '-temphexnguyenadb.png'
+            pathOut = pathOut + imageName
+            try:
+                with open(pathOut, 'wb') as f:
+                #  subprocess.run(['adb', '-s', self'exec-out', 'screencap', '-p'], stdout=f, check=True, timeout=10) 
+                    subprocess.run(['adb', '-s', self.deviceId, 'exec-out', 'screencap', '-p'], stdout=f, check=True, timeout=60)
+            except subprocess.CalledProcessError as e:
+                raise handleException('An error occurred: Unable to take screenshot')
+            return pathOut
+        else:
+            imageName = self.randomString() + '-temphexnguyenadb.png'
+            pathOut = pathOut + imageName
+            result, err = self.objAdb.execute([
+                'adb', '-s', self.deviceId, 'shell', 'screencap', '-p', '/sdcard/' + imageName
+            ])
+            # if err:
+            #     raise handleException('An error occurred: Unable to take screenshot (1)')
+            
+            result, err = self.objAdb.execute([
+                'adb', '-s', self.deviceId, 'pull', '/sdcard/' + imageName, pathOut
+            ])
+
+            # remove in device
+            result, err = self.objAdb.execute([
+                'adb', '-s', self.deviceId, 'shell', 'rm', '/sdcard/' + imageName
+            ])
+            if err:
+                raise handleException('An error occurred: Unable to take screenshot (2)')
+            
+            return pathOut
 
 
     """
@@ -1261,5 +1284,46 @@ class autoDeviceADBHelper:
     def clearDataApp (self, packageName: str) -> None:
         try:
             self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'pm', 'clear', packageName])
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    """
+        swipeToOpen: swipe to open
+    """
+    def swipeToOpen (self) -> None:
+        # 500 1500 500 500 300
+        try:
+            self.scroll(500, 1500, 500, 500, 300)
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+        
+    """
+        disableRotateScreen: disable rotate screen
+    """
+    def disableRotateScreen (self) -> None:
+        # adb shell settings put system accelerometer_rotation 0
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'settings', 'put', 'system', 'accelerometer_rotation', '0'])
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    
+    """
+        enableApp: enable app
+        @param packageName: package name
+    """
+    def enableApp (self, packageName: str) -> None:
+        # adb shell pm enable com.package.name
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'pm', 'enable', packageName])
+        except Exception as e:
+            raise handleException(f'An error occurred: {e}')
+    """
+        disableUpdatePlayStore: disable update play store
+        @param packageName: package name
+    """
+    def disableUpdatePlayStore (self) -> None:
+        # adb shell pm disable-user com.android.vending
+        try:
+            self.objAdb.execute(['adb', '-s', self.deviceId, 'shell', 'pm', 'disable-user', 'com.android.vending'])
         except Exception as e:
             raise handleException(f'An error occurred: {e}')
